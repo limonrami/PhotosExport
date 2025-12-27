@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key>
+  <string>io.carmo.PhotosExport</string>
+  <key>CFBundleName</key>
+  <string>PhotosExport</string>
+  <key>CFBundleDisplayName</key>
+  <string>PhotosExport</string>
+  <key>CFBundleExecutable</key>
+  <string>PhotosExport</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>LSUIElement</key>
+  <true/>
+
+  <key>NSPhotoLibraryUsageDescription</key>
+  <string>PhotosExport needs access to your Photos Library to export originals into folders.</string>
+</dict>
+</plist>
