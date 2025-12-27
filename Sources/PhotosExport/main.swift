@@ -90,10 +90,11 @@ enum Main {
           )
 
           if settings.metadata {
-            let metaOriginal = exportedResources.first?.0.originalFilename ?? ""
             let sidecarName = exportFilename(
               captureDate: date,
-              originalFilename: metaOriginal,
+              // Don't inherit the extension from any exported resource (e.g., .heic).
+              // We always want a JSON sidecar.
+              originalFilename: "",
               fallbackSeed: "asset=\(asset.localIdentifier)|metadata",
               uti: UTType.json.identifier,
               usedNames: &usedNames
