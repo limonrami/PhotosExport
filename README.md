@@ -47,13 +47,33 @@ Where:
 - If multiple resources would still collide, the letter is advanced (`…a`, `…b`, …) until unique.
 - File extensions are always lowercased.
 
+## Metadata sidecars
+
+If you pass:
+
+- `PhotosExport --metadata`
+
+…the exporter will write a JSON sidecar next to the exported files for each asset.
+
+What it contains (high level):
+
+- Asset identifiers and basic properties (type/subtypes, dimensions, duration, favorite/hidden flags, timestamps).
+- Location data (if present) and a best-effort reverse-geocoded placemark.
+- A list of exported resources for that asset (type/UTI/original filename/exported filename/path, plus basic file stats).
+- Where available, additional Photos/AVFoundation metadata and image properties (e.g., EXIF/TIFF/GPS/IPTC/XMP dictionaries).
+
+Notes:
+
+- Sidecar filenames use the same timestamp-based naming scheme and collision handling as exported resources.
+- This can include sensitive data (precise location + placenames, camera serials, etc.). Treat the output folder accordingly.
+
 ## Logging
 
 - By default, a detailed progress log is written to `stderr` as it:
-	- creates folders,
-	- enumerates assets,
-	- enumerates resources per asset,
-	- and writes each resource to disk.
+  - creates folders,
+  - enumerates assets,
+  - enumerates resources per asset,
+  - and writes each resource to disk.
 
 To write the progress log to a file instead:
 
@@ -83,6 +103,8 @@ You can also run via SwiftPM directly:
 
 - `swift build -c release`
 - `./.build/release/PhotosExport`
+
+If you’re building this with Swift 6 strict concurrency enabled: yes, it can be nearly as unpalatable as AppleScript.
 
 ## Notes
 

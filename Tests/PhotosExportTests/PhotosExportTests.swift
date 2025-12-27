@@ -8,6 +8,12 @@ final class PhotosExportTests: XCTestCase {
     XCTAssertFalse(s.debug)
   }
 
+  func testParseSettingsMetadataFlag() {
+    let s = parseSettings(["PhotosExport", "--metadata"])
+    XCTAssertTrue(s.metadata)
+    XCTAssertFalse(s.incremental)
+  }
+
   func testCaptureTimestampStringFormat() {
     var cal = Calendar(identifier: .gregorian)
     cal.timeZone = TimeZone(secondsFromGMT: 0)!
