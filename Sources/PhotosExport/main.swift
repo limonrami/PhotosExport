@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 
 @main
 enum Main {
+  @MainActor
   static func main() async {
     let fm = FileManager.default
     let home = fm.homeDirectoryForCurrentUser

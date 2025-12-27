@@ -4,6 +4,40 @@ import ImageIO
 import CoreLocation
 @preconcurrency import AVFoundation
 
+// AVFoundation types are Objective-C reference types and aren't annotated Sendable.
+// We only use them for read-only metadata extraction.
+extension AVAsset: @unchecked @retroactive Sendable {}
+
+enum AVMetadataValue: Sendable {
+  case string(String)
+  case number(Double)
+  case dateISO8601(String)
+  case dataBase64(String)
+}
+
+struct AVMetadataEntry: Sendable {
+  var identifier: String?
+  var key: String?
+  var commonKey: String?
+  var value: AVMetadataValue?
+}
+
+struct ContentEditingData: Sendable {
+  var uniformType: String?
+  var orientation: Int32
+  var livePhotoId: String?
+  var adjustmentFormatIdentifier: String?
+  var adjustmentFormatVersion: String?
+  var adjustmentDataBase64: String?
+
+  var avDurationSeconds: Double?
+  var avVideoWidth: Double?
+  var avVideoHeight: Double?
+  var avMetadata: [AVMetadataEntry]
+
+  var fullSizeImageURL: URL?
+}
+
 @MainActor
 func jsonSafe(_ value: Any) -> Any {
   switch value {
@@ -62,6 +96,49 @@ func avMetadataItemsToJSON(_ items: [AVMetadataItem]) async -> [[String: Any]] {
     }
 
     if !entry.isEmpty {
+      result.append(entry)
+    }
+  }
+
+  return result
+}
+
+@MainActor
+func avMetadataItemsToEntries(_ items: [AVMetadataItem]) async -> [AVMetadataEntry] {
+  var result: [AVMetadataEntry] = []
+  result.reserveCapacity(items.count)
+
+  for item in items {
+    var entry = AVMetadataEntry(
+      identifier: item.identifier?.rawValue,
+      key: item.key?.description,
+      commonKey: item.commonKey?.rawValue,
+      value: nil
+    )
+
+    if #available(macOS 13.0, *) {
+      if let stringValue = try? await item.load(.stringValue) {
+        entry.value = .string(stringValue)
+      } else if let numberValue = try? await item.load(.numberValue) {
+        entry.value = .number(numberValue.doubleValue)
+      } else if let dateValue = try? await item.load(.dateValue) {
+        entry.value = .dateISO8601(isoTimestamp(dateValue))
+      } else if let dataValue = try? await item.load(.dataValue) {
+        entry.value = .dataBase64(dataValue.base64EncodedString())
+      }
+    } else {
+      if let stringValue = item.stringValue {
+        entry.value = .string(stringValue)
+      } else if let numberValue = item.numberValue {
+        entry.value = .number(numberValue.doubleValue)
+      } else if let dateValue = item.dateValue {
+        entry.value = .dateISO8601(isoTimestamp(dateValue))
+      } else if let dataValue = item.dataValue {
+        entry.value = .dataBase64(dataValue.base64EncodedString())
+      }
+    }
+
+    if entry.identifier != nil || entry.key != nil || entry.commonKey != nil || entry.value != nil {
       result.append(entry)
     }
   }
@@ -142,64 +219,110 @@ func extractMetadata(asset: PHAsset, logger: LineLogger? = nil) async -> [String
     ]
   }
 
-  // Extract data from PHContentEditingInput in the completion handler to avoid sending non-Sendable types
-  nonisolated(unsafe) let contentData: (uniformType: String?, orientation: Int32, livePhotoId: String?, adjustmentData: [String: Any]?, avAsset: AVAsset?, fullSizeImageURL: URL?)? = await withUnsafeContinuation { cont in
+  // Bridge PHContentEditingInput -> Sendable ContentEditingData (Swift 6 strict concurrency)
+  let contentData: ContentEditingData? = await withCheckedContinuation { cont in
     let opts = PHContentEditingInputRequestOptions()
     opts.isNetworkAccessAllowed = true
+
     asset.requestContentEditingInput(with: opts) { input, _ in
-      guard let input = input else {
+      guard let input else {
         cont.resume(returning: nil)
         return
       }
+
       let uniformType = input.uniformTypeIdentifier
       let orientation = input.fullSizeImageOrientation
       let livePhotoId = input.value(forKey: "livePhotoPairingIdentifier") as? String
-      let adjustmentData: [String: Any]? = input.adjustmentData.map { adj in
-        [
-          "formatIdentifier": adj.formatIdentifier,
-          "formatVersion": adj.formatVersion,
-          "dataBase64": adj.data.base64EncodedString()
-        ]
-      }
-      let avAsset = input.audiovisualAsset
+
+      let adjustmentFormatIdentifier = input.adjustmentData?.formatIdentifier
+      let adjustmentFormatVersion = input.adjustmentData?.formatVersion
+      let adjustmentDataBase64 = input.adjustmentData?.data.base64EncodedString()
+
       let fullSizeImageURL = input.fullSizeImageURL
-      cont.resume(returning: (uniformType, orientation, livePhotoId, adjustmentData, avAsset, fullSizeImageURL))
+      let avAsset = input.audiovisualAsset
+
+      Task { @MainActor in
+        var avDurationSeconds: Double? = nil
+        var avVideoWidth: Double? = nil
+        var avVideoHeight: Double? = nil
+        var avEntries: [AVMetadataEntry] = []
+
+        if let avAsset {
+          if #available(macOS 13.0, *) {
+            if let duration = try? await avAsset.load(.duration) {
+              avDurationSeconds = CMTimeGetSeconds(duration)
+            }
+            if let tracks = try? await avAsset.loadTracks(withMediaType: .video), let videoTrack = tracks.first {
+              if let size = try? await videoTrack.load(.naturalSize) {
+                avVideoWidth = size.width
+                avVideoHeight = size.height
+              }
+            }
+            if let items = try? await avAsset.load(.metadata) {
+              avEntries = await avMetadataItemsToEntries(items)
+            }
+          } else {
+            avDurationSeconds = CMTimeGetSeconds(avAsset.duration)
+            if let videoTrack = avAsset.tracks(withMediaType: .video).first {
+              avVideoWidth = videoTrack.naturalSize.width
+              avVideoHeight = videoTrack.naturalSize.height
+            }
+            avEntries = await avMetadataItemsToEntries(avAsset.metadata)
+          }
+        }
+
+        cont.resume(returning: ContentEditingData(
+          uniformType: uniformType,
+          orientation: orientation,
+          livePhotoId: livePhotoId,
+          adjustmentFormatIdentifier: adjustmentFormatIdentifier,
+          adjustmentFormatVersion: adjustmentFormatVersion,
+          adjustmentDataBase64: adjustmentDataBase64,
+          avDurationSeconds: avDurationSeconds,
+          avVideoWidth: avVideoWidth,
+          avVideoHeight: avVideoHeight,
+          avMetadata: avEntries,
+          fullSizeImageURL: fullSizeImageURL
+        ))
+      }
     }
   }
-  
+
   if let data = contentData {
     metadata["contentUniformType"] = data.uniformType
     metadata["fullSizeImageOrientation"] = data.orientation
     if let livePhotoId = data.livePhotoId {
       metadata["livePhotoPairingIdentifier"] = livePhotoId
     }
-    if let adjustmentData = data.adjustmentData {
-      metadata["adjustmentData"] = adjustmentData
+    if let fid = data.adjustmentFormatIdentifier {
+      metadata["adjustmentData"] = [
+        "formatIdentifier": fid,
+        "formatVersion": data.adjustmentFormatVersion ?? "",
+        "dataBase64": data.adjustmentDataBase64 ?? ""
+      ]
     }
-  }
-
-  if let avAsset = contentData?.avAsset {
-    if #available(macOS 13.0, *) {
-      if let duration = try? await avAsset.load(.duration) {
-        metadata["avAssetDurationSeconds"] = CMTimeGetSeconds(duration)
-      }
-      if let tracks = try? await avAsset.loadTracks(withMediaType: .video), let videoTrack = tracks.first {
-        if let size = try? await videoTrack.load(.naturalSize) {
-          metadata["avVideoDimensions"] = ["width": size.width, "height": size.height]
+    if let secs = data.avDurationSeconds {
+      metadata["avAssetDurationSeconds"] = secs
+    }
+    if let w = data.avVideoWidth, let h = data.avVideoHeight {
+      metadata["avVideoDimensions"] = ["width": w, "height": h]
+    }
+    if !data.avMetadata.isEmpty {
+      metadata["avMetadata"] = data.avMetadata.map { e in
+        var d: [String: Any] = [:]
+        if let v = e.identifier { d["identifier"] = v }
+        if let v = e.key { d["key"] = v }
+        if let v = e.commonKey { d["commonKey"] = v }
+        if let v = e.value {
+          switch v {
+          case .string(let s): d["value"] = s
+          case .number(let n): d["value"] = NSNumber(value: n)
+          case .dateISO8601(let s): d["value"] = s
+          case .dataBase64(let s): d["valueBase64"] = s
+          }
         }
+        return d
       }
-      if let items = try? await avAsset.load(.metadata) {
-        metadata["avMetadata"] = await avMetadataItemsToJSON(items)
-      }
-    } else {
-      metadata["avAssetDurationSeconds"] = CMTimeGetSeconds(avAsset.duration)
-      if let videoTrack = avAsset.tracks(withMediaType: .video).first {
-        metadata["avVideoDimensions"] = [
-          "width": videoTrack.naturalSize.width,
-          "height": videoTrack.naturalSize.height
-        ]
-      }
-      metadata["avMetadata"] = await avMetadataItemsToJSON(avAsset.metadata)
     }
   }
 
