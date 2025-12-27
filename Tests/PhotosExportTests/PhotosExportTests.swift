@@ -2,6 +2,13 @@ import XCTest
 @testable import PhotosExport
 
 final class PhotosExportTests: XCTestCase {
+  private func makeTempDir(prefix: String = "photosexport-tests") throws -> URL {
+    let base = FileManager.default.temporaryDirectory
+    let dir = base.appendingPathComponent("\(prefix)-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    return dir
+  }
+
   func testParseSettingsIncrementalFlag() {
     let s = parseSettings(["PhotosExport", "--incremental"])
     XCTAssertTrue(s.incremental)
@@ -12,6 +19,25 @@ final class PhotosExportTests: XCTestCase {
     let s = parseSettings(["PhotosExport", "--metadata"])
     XCTAssertTrue(s.metadata)
     XCTAssertFalse(s.incremental)
+  }
+
+  func testParseSettingsDebugFlag() {
+    let s = parseSettings(["PhotosExport", "--debug"])
+    XCTAssertTrue(s.debug)
+    XCTAssertFalse(s.incremental)
+    XCTAssertFalse(s.metadata)
+  }
+
+  func testParseSettingsLogFile() throws {
+    let tmp = try makeTempDir(prefix: "logfile")
+    let log = tmp.appendingPathComponent("run.log")
+    let s = parseSettings(["PhotosExport", "--log-file", log.path])
+    XCTAssertEqual(s.logFile?.standardizedFileURL.path, log.standardizedFileURL.path)
+  }
+
+  func testParseSettingsLogFileMissingArgDoesNotCrash() {
+    let s = parseSettings(["PhotosExport", "--log-file"])
+    XCTAssertNil(s.logFile)
   }
 
   func testCaptureTimestampStringFormat() {
@@ -25,6 +51,13 @@ final class PhotosExportTests: XCTestCase {
     XCTAssertTrue(s.allSatisfy({ $0 >= "0" && $0 <= "9" }))
   }
 
+  func testIsoTimestampLooksLikeISO8601WithFractionalSeconds() {
+    let s = isoTimestamp(Date(timeIntervalSince1970: 0))
+    XCTAssertTrue(s.contains("T"))
+    XCTAssertTrue(s.contains("."))
+    XCTAssertTrue(s.hasSuffix("Z"))
+  }
+
   func testFNV1a64IsDeterministic() {
     XCTAssertEqual(fnv1a64("IMG_0001.JPG"), fnv1a64("IMG_0001.JPG"))
     XCTAssertNotEqual(fnv1a64("IMG_0001.JPG"), fnv1a64("IMG_0002.JPG"))
@@ -36,6 +69,96 @@ final class PhotosExportTests: XCTestCase {
 
     let c1 = alphaLetter(from: 123456789)
     XCTAssertTrue(("a"..."z").contains(String(c1)))
+  }
+
+  func testAlphaLetterOffsetWrapsAndHandlesNegative() {
+    let base = alphaLetter(from: 0, offset: 0) // 'a'
+    XCTAssertEqual(base, "a")
+    XCTAssertEqual(alphaLetter(from: 0, offset: 1), "b")
+    XCTAssertEqual(alphaLetter(from: 0, offset: 26), "a")
+    XCTAssertEqual(alphaLetter(from: 0, offset: -1), "z")
+    XCTAssertEqual(alphaLetter(from: 0, offset: -27), "z")
+  }
+
+  func testSanitizeReplacesSlashAndColon() {
+    XCTAssertEqual(sanitize("a/b:c"), "a_b-c")
+  }
+
+  func testMonthAndYearString() {
+    var cal = Calendar(identifier: .gregorian)
+    cal.timeZone = TimeZone(secondsFromGMT: 0)!
+    let date = cal.date(from: DateComponents(year: 2025, month: 1, day: 2))!
+    XCTAssertEqual(yearString(date), "2025")
+    XCTAssertEqual(monthString(date), "01")
+  }
+
+  func testCurrentYearRangeIsSane() {
+    let (start, end) = currentYearRange()
+    XCTAssertLessThanOrEqual(start, end)
+  }
+
+  func testEnsureDirCreatesDirectory() async throws {
+    let tmp = try makeTempDir(prefix: "ensuredir")
+    let target = tmp.appendingPathComponent("nested/dir", isDirectory: true)
+    try await ensureDir(target, logger: nil)
+    var isDir: ObjCBool = false
+    XCTAssertTrue(FileManager.default.fileExists(atPath: target.path, isDirectory: &isDir))
+    XCTAssertTrue(isDir.boolValue)
+  }
+
+  func testEnsureDirExistingDirectoryIsOk() async throws {
+    let tmp = try makeTempDir(prefix: "ensuredir-exists")
+    try await ensureDir(tmp, logger: nil)
+    try await ensureDir(tmp, logger: nil)
+  }
+
+  func testEnsureDirThrowsIfPathIsAFile() async throws {
+    let tmp = try makeTempDir(prefix: "ensuredir-file")
+    let fileURL = tmp.appendingPathComponent("not-a-dir")
+    FileManager.default.createFile(atPath: fileURL.path, contents: Data("x".utf8))
+    do {
+      try await ensureDir(fileURL, logger: nil)
+      XCTFail("Expected ensureDir to throw for file path")
+    } catch {
+      let ns = error as NSError
+      XCTAssertEqual(ns.domain, "PhotosExport")
+      XCTAssertEqual(ns.code, 10)
+    }
+  }
+
+  func testErrorDetailsIncludesDomainCodeAndUnderlying() {
+    let underlying = NSError(domain: "Underlying", code: 42, userInfo: [NSLocalizedDescriptionKey: "boom"])
+    let err = NSError(
+      domain: "Top",
+      code: 7,
+      userInfo: [
+        NSLocalizedDescriptionKey: "nope",
+        NSUnderlyingErrorKey: underlying,
+        NSLocalizedFailureReasonErrorKey: "because",
+        NSLocalizedRecoverySuggestionErrorKey: "do the thing"
+      ]
+    )
+
+    let s = errorDetails(err)
+    XCTAssertTrue(s.contains("domain=Top"))
+    XCTAssertTrue(s.contains("code=7"))
+    XCTAssertTrue(s.contains("underlying=Underlying(42)"))
+    XCTAssertTrue(s.contains("reason=because"))
+    XCTAssertTrue(s.contains("recovery=do the thing"))
+  }
+
+  func testAppendLineAndBlockWriteExpectedContent() throws {
+    let tmp = try makeTempDir(prefix: "append")
+    let fileURL = tmp.appendingPathComponent("out.log")
+
+    appendLine("one", to: fileURL)
+    appendBlock("hdr", lines: ["a", "b"], to: fileURL)
+
+    let contents = try String(contentsOf: fileURL, encoding: .utf8)
+    XCTAssertTrue(contents.contains("one\n"))
+    XCTAssertTrue(contents.contains("hdr\n"))
+    XCTAssertTrue(contents.contains("  a\n"))
+    XCTAssertTrue(contents.contains("  b\n"))
   }
 
   func testExportFilenameUsesHashedLetterAndIsStable() {

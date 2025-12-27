@@ -232,7 +232,13 @@ func extractMetadata(asset: PHAsset, logger: LineLogger? = nil) async -> [String
 
       let uniformType = input.uniformTypeIdentifier
       let orientation = input.fullSizeImageOrientation
-      let livePhotoId = input.value(forKey: "livePhotoPairingIdentifier") as? String
+      // Best-effort: this is not a public API and may not exist (or be KVC-compliant) on all OS versions.
+      // Avoid value(forKey:) here because it can throw an ObjC exception (not catchable in Swift).
+      let livePhotoId: String? = {
+        let sel = NSSelectorFromString("livePhotoPairingIdentifier")
+        guard input.responds(to: sel) else { return nil }
+        return input.perform(sel)?.takeUnretainedValue() as? String
+      }()
 
       let adjustmentFormatIdentifier = input.adjustmentData?.formatIdentifier
       let adjustmentFormatVersion = input.adjustmentData?.formatVersion
