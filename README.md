@@ -32,9 +32,13 @@ Exports go under:
 
 - `~/Pictures/Exports/YYYY/MM/`
 
+Unless you pass:
+
+- `PhotosExport --export-directory /path/to/export`
+
 An error log is written to:
 
-- `~/Pictures/Exports/export_errors.log`
+- `<export directory>/export_errors.log`
 
 ## Filenames
 
@@ -60,14 +64,14 @@ If you pass:
 What it contains (high level):
 
 - Asset identifiers and basic properties (type/subtypes, dimensions, duration, favorite/hidden flags, timestamps).
-- Location data (if present) and a best-effort reverse-geocoded placemark.
+- Location data (if present) and a best-effort reverse-geocoded place mark.
 - A list of exported resources for that asset (type/UTI/original filename/exported filename/path, plus basic file stats).
 - Where available, additional Photos/AVFoundation metadata and image properties (e.g., EXIF/TIFF/GPS/IPTC/XMP dictionaries).
 
 Notes:
 
 - Sidecar filenames use the same timestamp-based naming scheme and collision handling as exported resources.
-- This can include sensitive data (precise location + placenames, camera serials, etc.). Treat the output folder accordingly.
+- This can include sensitive data (precise location + place names, camera serials, etc.). Treat the output folder accordingly.
 
 ## Logging
 

@@ -54,6 +54,15 @@ func yearRange(_ year: Int) -> (start: Date, end: Date) {
   return (start, end)
 }
 
+func yearRange(startYear: Int, endYear: Int) -> (start: Date, end: Date) {
+  var cal = Calendar(identifier: .gregorian)
+  // Use a stable timezone to avoid DST/locale edge cases when building date boundaries.
+  cal.timeZone = TimeZone(secondsFromGMT: 0)!
+  let start = cal.date(from: DateComponents(year: startYear, month: 1, day: 1, hour: 0, minute: 0, second: 0))!
+  let end = cal.date(from: DateComponents(year: endYear, month: 12, day: 31, hour: 23, minute: 59, second: 59))!
+  return (start, end)
+}
+
 func currentYearRange() -> (start: Date, end: Date) {
   let cal = Calendar(identifier: .gregorian)
   let now = Date()

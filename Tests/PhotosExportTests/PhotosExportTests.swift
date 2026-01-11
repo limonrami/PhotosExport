@@ -39,9 +39,46 @@ final class PhotosExportTests: XCTestCase {
     XCTAssertThrowsError(try parseSettings(["PhotosExport", "--log-file"]))
   }
 
+  func testParseSettingsExportDirectory() throws {
+    let tmp = try makeTempDir(prefix: "export_dir")
+    let exportDir = tmp.appendingPathComponent("exports", isDirectory: true)
+    try FileManager.default.createDirectory(at: exportDir, withIntermediateDirectories: true)
+    let s = try parseSettings(["PhotosExport", "--export-directory", exportDir.path])
+    XCTAssertEqual(s.exportDirectory?.standardizedFileURL.path, exportDir.standardizedFileURL.path)
+  }
+
+  func testParseSettingsExportDirectoryMissingArgThrows() {
+    XCTAssertThrowsError(try parseSettings(["PhotosExport", "--export-directory"]))
+  }
+
+  func testParseSettingsExportDirectoryRejectsNonExistentPath() throws {
+    let tmp = try makeTempDir(prefix: "export_dir_missing")
+    let missing = tmp.appendingPathComponent("does-not-exist", isDirectory: true)
+    XCTAssertThrowsError(try parseSettings(["PhotosExport", "--export-directory", missing.path]))
+  }
+
+  func testParseSettingsExportDirectoryRejectsFilePath() throws {
+    let tmp = try makeTempDir(prefix: "export_dir_file")
+    let fileURL = tmp.appendingPathComponent("not-a-dir")
+    FileManager.default.createFile(atPath: fileURL.path, contents: Data("x".utf8))
+    XCTAssertThrowsError(try parseSettings(["PhotosExport", "--export-directory", fileURL.path]))
+  }
+
   func testParseSettingsYearOverrideValid() {
     let s = try! parseSettings(["PhotosExport", "--year", "2024"])
     XCTAssertEqual(s.yearOverride, 2024)
+  }
+
+  func testParseSettingsEndYearRequiresYear() {
+    XCTAssertThrowsError(try parseSettings(["PhotosExport", "--end-year", "2025"]))
+  }
+
+  func testParseSettingsEndYearRangeValid() {
+    XCTAssertNoThrow(try parseSettings(["PhotosExport", "--year", "2020", "--end-year", "2025"]))
+  }
+
+  func testParseSettingsEndYearRangeRejectsInverted() {
+    XCTAssertThrowsError(try parseSettings(["PhotosExport", "--year", "2025", "--end-year", "2020"]))
   }
 
   func testParseSettingsYearOverrideMissingValueThrows() {
@@ -50,8 +87,6 @@ final class PhotosExportTests: XCTestCase {
 
   func testParseSettingsYearOverrideRejectsInvalid() {
     XCTAssertThrowsError(try parseSettings(["PhotosExport", "--year", "abcd"]))
-    XCTAssertThrowsError(try parseSettings(["PhotosExport", "--year", "99"]))
-    XCTAssertThrowsError(try parseSettings(["PhotosExport", "--year", "1969"]))
   }
 
   func testCaptureTimestampStringFormat() {

@@ -6,18 +6,19 @@ import UniformTypeIdentifiers
 enum Main {
   @MainActor
   static func main() async {
-    let fm = FileManager.default
-    let home = fm.homeDirectoryForCurrentUser
-    let exportBase = home.appendingPathComponent("Pictures/Exports", isDirectory: true)
-    let errorLog = exportBase.appendingPathComponent("export_errors.log")
     let settings: Settings
     do {
       settings = try parseSettings(CommandLine.arguments)
     } catch {
       fputs("Invalid arguments: \(error)\n", stderr)
-      fputs("Usage: PhotosExport [--debug] [--incremental] [--metadata] [--year YYYY] [--log-file /path/to/log]\n", stderr)
+      fputs("Usage: PhotosExport [--debug] [--incremental] [--metadata] [--year YYYY] [--end-year YYYY] [--log-file /path/to/log] [--export-directory /path/to/export]\n", stderr)
       exit(2)
     }
+
+    let fm = FileManager.default
+    let exportBase: URL = settings.exportDirectory
+      ?? fm.homeDirectoryForCurrentUser.appendingPathComponent("Pictures/Exports", isDirectory: true)
+    let errorLog = exportBase.appendingPathComponent("export_errors.log")
 
     do {
       let debugLogger: LineLogger?
@@ -65,7 +66,7 @@ enum Main {
       await logDebug(debugLogger, "fetch.done total=\(total)")
 
       if total == 0 {
-        print("No assets found for current year.")
+        print("No assets found for selected date range.")
         return
       }
 
