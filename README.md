@@ -99,6 +99,18 @@ To override:
 
 - `PhotosExport --year 2024`
 
+### Exporting a range of years
+
+You can export multiple years in a single run by specifying both `--year` (start year) and `--end-year` (end year):
+
+- `PhotosExport --year 2018 --end-year 2025`
+
+Notes:
+
+- `--end-year` **must** be used together with `--year`.
+- The range is inclusive (start and end years are included).
+- If `--year` is greater than `--end-year`, the tool exits with an error.
+
 The year can be any valid integer. By popular request, we now allow any year—to accommodate researchers, time travelers, and inter-dimensional drift.
 
 ## Build / Run
