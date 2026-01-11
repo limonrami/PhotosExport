@@ -63,6 +63,10 @@ enum Main {
       }
 
       await logDebug(debugLogger, "iterate.begin total=\(total)")
+
+      // Track used filenames per destination folder across all assets.
+      // This prevents collisions when multiple assets share the exact same capture timestamp.
+      var usedNamesByFolder: [URL: Set<String>] = [:]
       for idx in 0..<total {
         let asset = assets.object(at: idx)
         let mediaLabel = asset.mediaType == .video ? "video" : "photo"
@@ -85,7 +89,8 @@ enum Main {
           try await ensureDir(folder, logger: debugLogger)
           await logDebug(debugLogger, "asset.folder asset=\(asset.localIdentifier) folder=\(folder.path)")
 
-          var usedNames = Set<String>()
+          // Reuse the per-folder set across assets so filenames remain unique.
+          var usedNames = usedNamesByFolder[folder] ?? Set<String>()
           let exportedResources = try await exportAllResources(
             asset: asset,
             captureDate: date,
@@ -95,6 +100,9 @@ enum Main {
             logger: debugLogger,
             usedNames: &usedNames
           )
+
+          // Persist back to the folder map.
+          usedNamesByFolder[folder] = usedNames
 
           if settings.metadata {
             let sidecarName = exportFilename(
@@ -126,6 +134,9 @@ enum Main {
             }
 
             try await saveMetadataJSON(metadata: metadata, to: sidecarURL, logger: debugLogger)
+
+            // Sidecar name also consumes from usedNames; persist updated set.
+            usedNamesByFolder[folder] = usedNames
           }
 
           exported += 1
